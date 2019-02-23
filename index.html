@@ -1,0 +1,394 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>pysimdjson &#8212; pysimdjson 1.2.0 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <a class="reference external image-reference" href="https://img.shields.io/pypi/l/pysimdjson.svg?style=flat-square"><img alt="PyPI - License" src="https://img.shields.io/pypi/l/pysimdjson.svg?style=flat-square" /></a>
+<div class="section" id="pysimdjson">
+<h1>pysimdjson<a class="headerlink" href="#pysimdjson" title="Permalink to this headline">¶</a></h1>
+<p>Quick-n’dirty Python bindings for <a class="reference external" href="https://github.com/lemire/simdjson">simdjson</a> just to see if going down this path
+might yield some parse time improvements in real-world applications. So far,
+the results are promising, especially when only part of a document is of
+interest.</p>
+<p>These bindings are currently only tested on OS X, but should work everywhere
+simdjson does although you’ll probably have to tweak your build flags.</p>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+<p>There are binary wheels available for OS X 10.12. On other platforms you’ll need a
+C++11-capable compiler.</p>
+<p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">pysimdjson</span></code></p>
+<p>or from source:</p>
+<div class="highlight-guess notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/TkTech/pysimdjson.git
+cd pysimdjson
+python setup.py install
+</pre></div>
+</div>
+</div>
+<div class="section" id="example">
+<h2>Example<a class="headerlink" href="#example" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">simdjson</span>
+
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;sample.json&#39;</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fin</span><span class="p">:</span>
+    <span class="n">doc</span> <span class="o">=</span> <span class="n">simdjson</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">fin</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>However, this doesn’t really gain you that much over, say, ujson. You’re still
+loading the entire document and converting the entire thing into a series of
+Python objects which is very expensive. You can instead use <code class="docutils literal notranslate"><span class="pre">items()</span></code> to pull
+only part of a document into Python.</p>
+<p>Example document:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;search_results&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;count&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="nt">&quot;results&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span><span class="nt">&quot;username&quot;</span><span class="p">:</span> <span class="s2">&quot;bob&quot;</span><span class="p">},</span>
+        <span class="p">{</span><span class="nt">&quot;username&quot;</span><span class="p">:</span> <span class="s2">&quot;tod&quot;</span><span class="p">}</span>
+    <span class="p">],</span>
+    <span class="nt">&quot;error&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;All good captain&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>And now lets try some queries…</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">simdjson</span>
+
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;sample.json&#39;</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fin</span><span class="p">:</span>
+    <span class="c1"># Calling ParsedJson with a document is a shortcut for</span>
+    <span class="c1"># calling pj.allocate_capacity(&lt;size&gt;) and pj.parse(&lt;doc&gt;). If you&#39;re</span>
+    <span class="c1"># parsing many JSON documents of similar sizes, you can allocate</span>
+    <span class="c1"># a large buffer just once and keep re-using it instead.</span>
+    <span class="n">pj</span> <span class="o">=</span> <span class="n">simdjson</span><span class="o">.</span><span class="n">ParsedJson</span><span class="p">(</span><span class="n">fin</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+
+    <span class="n">pj</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s1">&#39;.type&#39;</span><span class="p">)</span> <span class="c1">#&gt; &quot;search_results&quot;</span>
+    <span class="n">pj</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s1">&#39;.count&#39;</span><span class="p">)</span> <span class="c1">#&gt; 2</span>
+    <span class="n">pj</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s1">&#39;.results[].username&#39;</span><span class="p">)</span> <span class="c1">#&gt; [&quot;bob&quot;, &quot;tod&quot;]</span>
+    <span class="n">pj</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s1">&#39;.error.message&#39;</span><span class="p">)</span> <span class="c1">#&gt; &quot;All good captain&quot;</span>
+</pre></div>
+</div>
+<div class="section" id="avx2">
+<h3>AVX2<a class="headerlink" href="#avx2" title="Permalink to this headline">¶</a></h3>
+<p>simdjson requires AVX2 support to function. Check to see if your OS/processor supports it:</p>
+<ul class="simple">
+<li>OS X: <code class="docutils literal notranslate"><span class="pre">sysctl</span> <span class="pre">-a</span> <span class="pre">|</span> <span class="pre">grep</span> <span class="pre">machdep.cpu.leaf7_features</span></code></li>
+<li>Linux: <code class="docutils literal notranslate"><span class="pre">grep</span> <span class="pre">avx2</span> <span class="pre">/proc/cpuinfo</span></code></li>
+</ul>
+</div>
+<div class="section" id="low-level-interface">
+<h3>Low-level interface<a class="headerlink" href="#low-level-interface" title="Permalink to this headline">¶</a></h3>
+<p>You can use the low-level simdjson Iterator interface directly, just be aware
+that this interface can change any time. If you depend on it you should pin to
+a specific version of simdjson. You may need to use this interface if you’re
+dealing with odd JSON, such as a document with repeated non-unique keys.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;sample.json&#39;</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fin</span><span class="p">:</span>
+    <span class="n">pj</span> <span class="o">=</span> <span class="n">simdjson</span><span class="o">.</span><span class="n">ParsedJson</span><span class="p">(</span><span class="n">fin</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+    <span class="nb">iter</span> <span class="o">=</span> <span class="n">simdjson</span><span class="o">.</span><span class="n">Iterator</span><span class="p">(</span><span class="n">pj</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">iter</span><span class="o">.</span><span class="n">is_object</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">iter</span><span class="o">.</span><span class="n">down</span><span class="p">():</span>
+            <span class="k">print</span><span class="p">(</span><span class="nb">iter</span><span class="o">.</span><span class="n">get_string</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="early-benchmark">
+<h2>Early Benchmark<a class="headerlink" href="#early-benchmark" title="Permalink to this headline">¶</a></h2>
+<p>Comparing the built-in json module <code class="docutils literal notranslate"><span class="pre">loads</span></code> on py3.7 to simdjson <code class="docutils literal notranslate"><span class="pre">loads</span></code>.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="33%" />
+<col width="33%" />
+<col width="33%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">File</th>
+<th class="head"><code class="docutils literal notranslate"><span class="pre">json</span></code> time</th>
+<th class="head"><code class="docutils literal notranslate"><span class="pre">pysimdjson</span></code> time</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">jsonexamples/apache_builds.json</span></code></td>
+<td>0.09916733999999999</td>
+<td>0.074089268</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">jsonexamples/canada.json</span></code></td>
+<td>5.305393378</td>
+<td>1.6547515810000002</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">jsonexamples/citm_catalog.json</span></code></td>
+<td>1.3718639709999998</td>
+<td>1.0438697340000003</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">jsonexamples/github_events.json</span></code></td>
+<td>0.04840242700000097</td>
+<td>0.034239397999998644</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">jsonexamples/gsoc-2018.json</span></code></td>
+<td>1.5382746889999996</td>
+<td>0.9597240750000005</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">jsonexamples/instruments.json</span></code></td>
+<td>0.24350973299999978</td>
+<td>0.13639699600000021</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">jsonexamples/marine_ik.json</span></code></td>
+<td>4.505123285000002</td>
+<td>2.8965093270000004</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">jsonexamples/mesh.json</span></code></td>
+<td>1.0325923849999974</td>
+<td>0.38916503499999777</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">jsonexamples/mesh.pretty.json</span></code></td>
+<td>1.7129034710000006</td>
+<td>0.46509220500000126</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">jsonexamples/numbers.json</span></code></td>
+<td>0.16577519699999854</td>
+<td>0.04843887400000213</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">jsonexamples/random.json</span></code></td>
+<td>0.6930746310000018</td>
+<td>0.6175370539999996</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">jsonexamples/twitter.json</span></code></td>
+<td>0.6069602610000011</td>
+<td>0.41049074900000093</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">jsonexamples/twitterescaped.json</span></code></td>
+<td>0.7587005720000022</td>
+<td>0.41576198399999953</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">jsonexamples/update-center.json</span></code></td>
+<td>0.5577604210000011</td>
+<td>0.4961777420000004</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Permalink to this headline">¶</a></h1>
+<dl class="function">
+<dt id="simdjson.loads">
+<code class="descclassname">simdjson.</code><code class="descname">loads</code><span class="sig-paren">(</span><em>s</em><span class="sig-paren">)</span><a class="headerlink" href="#simdjson.loads" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deserialize and return the entire JSON object in <cite>s</cite> (bytes).</p>
+<p>Note that unlike the built-in Python <cite>json.loads</cite>, this method only accepts
+byte strings. simdjson internally only works with UTF-8.</p>
+</dd></dl>
+
+<div class="section" id="parsedjson">
+<h2>ParsedJson<a class="headerlink" href="#parsedjson" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="simdjson.ParsedJson">
+<em class="property">class </em><code class="descclassname">simdjson.</code><code class="descname">ParsedJson</code><span class="sig-paren">(</span><em>source=None</em><span class="sig-paren">)</span><a class="headerlink" href="#simdjson.ParsedJson" title="Permalink to this definition">¶</a></dt>
+<dd><p>Low-level wrapper for simdjson.</p>
+<p>Providing a <cite>source</cite> document is a shortcut for calling
+<a class="reference internal" href="#simdjson.ParsedJson.allocate_capacity" title="simdjson.ParsedJson.allocate_capacity"><code class="xref py py-func docutils literal notranslate"><span class="pre">allocate_capacity()</span></code></a> and <a class="reference internal" href="#simdjson.ParsedJson.parse" title="simdjson.ParsedJson.parse"><code class="xref py py-func docutils literal notranslate"><span class="pre">parse()</span></code></a>.</p>
+<dl class="method">
+<dt id="simdjson.ParsedJson.allocate_capacity">
+<code class="descname">allocate_capacity</code><span class="sig-paren">(</span><em>self</em>, <em>size</em>, <em>max_depth=DEFAULT_MAX_DEPTH</em><span class="sig-paren">)</span><a class="headerlink" href="#simdjson.ParsedJson.allocate_capacity" title="Permalink to this definition">¶</a></dt>
+<dd><p>Resize the document buffer to <cite>size</cite> bytes.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="simdjson.ParsedJson.items">
+<code class="descname">items</code><span class="sig-paren">(</span><em>self</em>, <em>query</em><span class="sig-paren">)</span><a class="headerlink" href="#simdjson.ParsedJson.items" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.ParsedJson.parse">
+<code class="descname">parse</code><span class="sig-paren">(</span><em>self</em>, <em>source</em><span class="sig-paren">)</span><a class="headerlink" href="#simdjson.ParsedJson.parse" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse the given document (as bytes).</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">It’s up to the caller to ensure that allocate_capacity has been
+called with a sufficiently large size before this method is
+called.</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="simdjson.ParsedJson.to_obj">
+<code class="descname">to_obj</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span><a class="headerlink" href="#simdjson.ParsedJson.to_obj" title="Permalink to this definition">¶</a></dt>
+<dd><p>Recursively convert a parsed json document to a Python object and
+return it.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="iterator">
+<h2>Iterator<a class="headerlink" href="#iterator" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="simdjson.Iterator">
+<em class="property">class </em><code class="descclassname">simdjson.</code><code class="descname">Iterator</code><a class="headerlink" href="#simdjson.Iterator" title="Permalink to this definition">¶</a></dt>
+<dd><p>A very thin wrapper around the interal simdjson ParsedJson::iterator
+object.</p>
+<dl class="method">
+<dt id="simdjson.Iterator.down">
+<code class="descname">down</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#simdjson.Iterator.down" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.get_double">
+<code class="descname">get_double</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span> &#x2192; double<a class="headerlink" href="#simdjson.Iterator.get_double" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.get_integer">
+<code class="descname">get_integer</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span> &#x2192; int64_t<a class="headerlink" href="#simdjson.Iterator.get_integer" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.get_string">
+<code class="descname">get_string</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span> &#x2192; bytes<a class="headerlink" href="#simdjson.Iterator.get_string" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.get_type">
+<code class="descname">get_type</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span> &#x2192; uint8_t<a class="headerlink" href="#simdjson.Iterator.get_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.isOk">
+<code class="descname">isOk</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#simdjson.Iterator.isOk" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.is_array">
+<code class="descname">is_array</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#simdjson.Iterator.is_array" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.is_double">
+<code class="descname">is_double</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#simdjson.Iterator.is_double" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.is_integer">
+<code class="descname">is_integer</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#simdjson.Iterator.is_integer" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.is_object">
+<code class="descname">is_object</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#simdjson.Iterator.is_object" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.is_object_or_array">
+<code class="descname">is_object_or_array</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#simdjson.Iterator.is_object_or_array" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.is_string">
+<code class="descname">is_string</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#simdjson.Iterator.is_string" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.move_to_key">
+<code class="descname">move_to_key</code><span class="sig-paren">(</span><em>self</em>, <em>const char *key</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#simdjson.Iterator.move_to_key" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.next">
+<code class="descname">next</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#simdjson.Iterator.next" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.prev">
+<code class="descname">prev</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#simdjson.Iterator.prev" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.to_obj">
+<code class="descname">to_obj</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span><a class="headerlink" href="#simdjson.Iterator.to_obj" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert the current iterator and all of its children into Python
+objects and return them.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="simdjson.Iterator.up">
+<code class="descname">up</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#simdjson.Iterator.up" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">pysimdjson</a><ul>
+<li><a class="reference internal" href="#installation">Installation</a></li>
+<li><a class="reference internal" href="#example">Example</a><ul>
+<li><a class="reference internal" href="#avx2">AVX2</a></li>
+<li><a class="reference internal" href="#low-level-interface">Low-level interface</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#early-benchmark">Early Benchmark</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#api-reference">API Reference</a><ul>
+<li><a class="reference internal" href="#parsedjson">ParsedJson</a></li>
+<li><a class="reference internal" href="#iterator">Iterator</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Tyler Kennedy.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
