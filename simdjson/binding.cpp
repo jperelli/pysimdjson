@@ -38,6 +38,16 @@ PYBIND11_MODULE(csimdjson, m) {
         .value("INVALID_URI_FRAGMENT", error_code::INVALID_URI_FRAGMENT)
         .value("UNEXPECTED_ERROR", error_code::UNEXPECTED_ERROR);
 
+    py::enum_<dom::element_type>(m, "element_type", py::arithmetic())
+        .value("ARRAY", dom::element_type::ARRAY)
+        .value("OBJECT", dom::element_type::OBJECT)
+        .value("INT64", dom::element_type::INT64)
+        .value("UINT64", dom::element_type::UINT64)
+        .value("DOUBLE", dom::element_type::DOUBLE)
+        .value("STRING", dom::element_type::STRING)
+        .value("BOOL", dom::element_type::BOOL)
+        .value("NULL_VALUE", dom::element_type::NULL_VALUE);
+
 
     // Base class for all errors except for MEMALLOC (which becomes a
     // MemoryError subclass) and IO_ERROR (which becomes an IOError subclass).
@@ -49,11 +59,11 @@ PYBIND11_MODULE(csimdjson, m) {
             "MemallocError", PyExc_MemoryError);
     static py::exception<simdjson_error> ex_no_such_field(m,
             "NoSuchFieldError", ex_simdjson_error.ptr());
-    static py::exception<simdjson_error> ex_index_out_of_bounds(m, 
+    static py::exception<simdjson_error> ex_index_out_of_bounds(m,
             "IndexOutOfBoundsError", ex_simdjson_error.ptr());
-    static py::exception<simdjson_error> ex_incorrect_type(m, 
+    static py::exception<simdjson_error> ex_incorrect_type(m,
             "IncorrectTypeError", ex_simdjson_error.ptr());
-    static py::exception<simdjson_error> ex_invalid_json_pointer(m, 
+    static py::exception<simdjson_error> ex_invalid_json_pointer(m,
             "InvalidJSONPointerError", ex_simdjson_error.ptr());
 
     py::register_exception_translator([](std::exception_ptr p) {
@@ -102,21 +112,7 @@ PYBIND11_MODULE(csimdjson, m) {
         )
 
         .def("parse",
-            [](dom::parser &p, const char *buf, size_t len, bool realloc_if_needed = true) {
-                dom::element doc = p.parse(buf, len, realloc_if_needed);
-                return doc;
-            },
-            py::return_value_policy::take_ownership
-        )
-        .def("parse",
             [](dom::parser &p, const std::string &s) {
-                dom::element doc = p.parse(s);
-                return doc;
-            },
-            py::return_value_policy::take_ownership
-        )
-        .def("parse",
-            [](dom::parser &p, const padded_string &s) {
                 dom::element doc = p.parse(s);
                 return doc;
             },
@@ -125,11 +121,55 @@ PYBIND11_MODULE(csimdjson, m) {
 
     py::class_<dom::element>(m, "element")
         .def_property_readonly("is_null", &dom::element::is_null)
+        .def_property_readonly("type", &dom::element::type)
         .def("at",
             [](dom::element &e, const std::string_view &json_pointer) {
                 dom::element doc = e.at(json_pointer);
                 return doc;
             },
+            py::return_value_policy::take_ownership,
+            "Get the value associated with the given JSON pointer."
+        )
+        .def("__getitem__",
+            [](dom::element &e, const char *key) {
+                // dom::element element = e[key];
+                auto [element, error] = e[key];
+                if (error == error_code::NO_SUCH_FIELD) {
+                    throw py::key_error("No such key");
+                }
+                return element;
+            },
             py::return_value_policy::take_ownership
+        )
+        .def("__truediv__",
+            [](dom::element &e, const std::string_view &json_pointer) {
+                dom::element doc = e.at(json_pointer);
+                return doc;
+            },
+            py::return_value_policy::take_ownership
+        )
+        .def_property_readonly("up",
+            [](dom::element &e) -> py::object {
+                switch (e.type()) {
+                case dom::element_type::ARRAY:
+                break;
+                case dom::element_type::OBJECT:
+                break;
+                case dom::element_type::INT64:
+                    return py::int_((int64_t)e);
+                case dom::element_type::UINT64:
+                    return py::int_((uint64_t)e);
+                case dom::element_type::DOUBLE:
+                    return py::float_((double)e);
+                case dom::element_type::STRING:
+                    return py::str((const char *)e);
+                case dom::element_type::BOOL:
+                    return py::bool_((bool)e);
+                case dom::element_type::NULL_VALUE:
+                    return py::none();
+                }
+                return py::none();
+            },
+            "Uplift a simdjson type to a primitive Python type."
         );
 }
