@@ -4,6 +4,47 @@
 namespace py = pybind11;
 using namespace simdjson;
 
+py::object element_to_primitive(const dom::element &e) {
+    switch (e.type()) {
+    case dom::element_type::ARRAY:
+        {
+            py::list result;
+
+            for (dom::element array_element : static_cast<dom::array>(e)) {
+                result.append(element_to_primitive(array_element));
+            }
+
+            return result;
+        }
+    case dom::element_type::OBJECT:
+        {
+            py::dict result;
+
+            for (auto [key, value] : static_cast<dom::object>(e)) {
+                // result[py::str(key.data(), key.size())] = element_to_primitive(value);
+                auto pykey = py::str(key.data(), key.size());
+                auto pyvalue = element_to_primitive(value);
+                PyDict_SetItem(result.ptr(), pykey.ptr(), pyvalue.ptr());
+            }
+
+            return result;
+        }
+    case dom::element_type::INT64:
+        return py::int_(static_cast<int64_t>(e));
+    case dom::element_type::UINT64:
+        return py::int_(static_cast<uint64_t>(e));
+    case dom::element_type::DOUBLE:
+        return py::float_(static_cast<double>(e));
+    case dom::element_type::STRING:
+        return py::str(static_cast<const char*>(e));
+    case dom::element_type::BOOL:
+        return py::bool_(static_cast<bool>(e));
+    case dom::element_type::NULL_VALUE:
+    default:
+        return py::none();
+    }
+}
+
 PYBIND11_MODULE(csimdjson, m) {
     m.doc() = "Python bindings for the simdjson project.";
 
@@ -108,19 +149,20 @@ PYBIND11_MODULE(csimdjson, m) {
                 dom::element doc = p.load(path);
                 return doc;
             },
-            py::return_value_policy::take_ownership
+            py::return_value_policy::take_ownership,
+            py::keep_alive<0, 1>()
         )
 
         .def("parse",
             [](dom::parser &p, const std::string &s) {
-                dom::element doc = p.parse(s);
+                dom::element doc = p.parse(padded_string(s));
                 return doc;
             },
-            py::return_value_policy::take_ownership
+            py::return_value_policy::take_ownership,
+            py::keep_alive<0, 1>()
         );
 
     py::class_<dom::element>(m, "element")
-        .def_property_readonly("is_null", &dom::element::is_null)
         .def_property_readonly("type", &dom::element::type)
         .def("at",
             [](dom::element &e, const std::string_view &json_pointer) {
@@ -148,28 +190,10 @@ PYBIND11_MODULE(csimdjson, m) {
             },
             py::return_value_policy::take_ownership
         )
-        .def_property_readonly("up",
-            [](dom::element &e) -> py::object {
-                switch (e.type()) {
-                case dom::element_type::ARRAY:
-                break;
-                case dom::element_type::OBJECT:
-                break;
-                case dom::element_type::INT64:
-                    return py::int_((int64_t)e);
-                case dom::element_type::UINT64:
-                    return py::int_((uint64_t)e);
-                case dom::element_type::DOUBLE:
-                    return py::float_((double)e);
-                case dom::element_type::STRING:
-                    return py::str((const char *)e);
-                case dom::element_type::BOOL:
-                    return py::bool_((bool)e);
-                case dom::element_type::NULL_VALUE:
-                    return py::none();
-                }
-                return py::none();
-            },
+        .def_property_readonly(
+            "up",
+            &element_to_primitive,
+            py::return_value_policy::take_ownership,
             "Uplift a simdjson type to a primitive Python type."
         );
 }

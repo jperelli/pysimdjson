@@ -44,7 +44,14 @@ setup(
             'm2r',
             'sphinx',
             'ghp-import',
-            'bumpversion'
+            'bumpversion',
+            'pytest',
+            'pytest-benchmark'
+        ],
+        'benchmark': [
+            'orjson',
+            'python-rapidjson',
+            'simplejson',
         ]
     },
     ext_modules=[
