@@ -4,44 +4,58 @@
 namespace py = pybind11;
 using namespace simdjson;
 
-py::object element_to_primitive(const dom::element &e) {
+inline PyObject* string_view_to_str(const std::string_view &s) {
+    // There's no reason for us to do validation or pay attention to
+    // errors. simdjson already did full utf8 validation for us.
+    return PyUnicode_DecodeUTF8Stateful(
+        s.data(),
+        s.size(),
+        "ignore\0",
+        NULL
+    );
+}
+
+PyObject* element_to_primitive(const dom::element &e) {
     switch (e.type()) {
     case dom::element_type::ARRAY:
         {
-            py::list result;
+            PyObject *result = PyList_New(0);
+            const dom::array arr = e.get<dom::array>();
 
-            for (dom::element array_element : static_cast<dom::array>(e)) {
-                result.append(element_to_primitive(array_element));
+            for (dom::element array_element : arr) {
+                PyList_Append(result, element_to_primitive(array_element));
             }
 
             return result;
         }
     case dom::element_type::OBJECT:
         {
-            py::dict result;
+            PyObject *result = PyDict_New();
+            const dom::object obj = e.get<dom::object>();
 
-            for (auto [key, value] : static_cast<dom::object>(e)) {
-                // result[py::str(key.data(), key.size())] = element_to_primitive(value);
-                auto pykey = py::str(key.data(), key.size());
-                auto pyvalue = element_to_primitive(value);
-                PyDict_SetItem(result.ptr(), pykey.ptr(), pyvalue.ptr());
+            for (auto [key, value] : obj) {
+                PyDict_SetItem(result, string_view_to_str(key), element_to_primitive(value));
             }
 
             return result;
         }
     case dom::element_type::INT64:
-        return py::int_(static_cast<int64_t>(e));
+        return PyLong_FromLongLong(e.get<int64_t>());
     case dom::element_type::UINT64:
-        return py::int_(static_cast<uint64_t>(e));
+        return PyLong_FromUnsignedLongLong(e.get<uint64_t>());
     case dom::element_type::DOUBLE:
-        return py::float_(static_cast<double>(e));
+        return PyFloat_FromDouble(e.get<double>());
     case dom::element_type::STRING:
-        return py::str(static_cast<const char*>(e));
+        return string_view_to_str(e.get<std::string_view>());
     case dom::element_type::BOOL:
-        return py::bool_(static_cast<bool>(e));
+        if (e.get<bool>()) {
+            Py_RETURN_TRUE;
+        } else {
+            Py_RETURN_FALSE;
+        }
     case dom::element_type::NULL_VALUE:
     default:
-        return py::none();
+        return Py_None;
     }
 }
 
@@ -192,7 +206,9 @@ PYBIND11_MODULE(csimdjson, m) {
         )
         .def_property_readonly(
             "up",
-            &element_to_primitive,
+            [](dom::element &e) {
+                return static_cast<py::handle>(element_to_primitive(e));
+            },
             py::return_value_policy::take_ownership,
             "Uplift a simdjson type to a primitive Python type."
         );
