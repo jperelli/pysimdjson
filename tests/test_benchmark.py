@@ -35,7 +35,7 @@ def csimdjson_loads(content):
     ]
 )
 def test_loads_json(group, func, path, benchmark):
-    benchmark.group = f'{path} deserialization'
+    benchmark.group = '{path} deserialization'.format(path=path)
     benchmark.extra_info['group'] = group
 
     with open(path, 'r') as src:
